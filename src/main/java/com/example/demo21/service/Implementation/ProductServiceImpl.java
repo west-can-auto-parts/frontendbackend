@@ -7,10 +7,7 @@ import com.example.demo21.entity.CategoryDocument;
 import com.example.demo21.entity.ProductCategoryDocument;
 import com.example.demo21.entity.ProductEnquiryDocument;
 import com.example.demo21.entity.SubCategoryDocument;
-import com.example.demo21.repository.CategoryRepository;
-import com.example.demo21.repository.ProductCategoryRepository;
-import com.example.demo21.repository.ProductEnquiryRepository;
-import com.example.demo21.repository.SubCategoryRepository;
+import com.example.demo21.repository.*;
 import com.example.demo21.service.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -41,7 +38,7 @@ public class ProductServiceImpl implements ProductService {
             pr.setId(cd.getId());
             pr.setName(cd.getName());
             pr.setDescription(cd.getDescription());
-//            pr.setImages(cd.getImages());
+            pr.setImageUrl(cd.getImages());
 //            pr.setProperties(cd.getProperties());
             pr.setTags(cd.getTags());
             pr.setFeatured(cd.isFeatured());
@@ -56,7 +53,7 @@ public class ProductServiceImpl implements ProductService {
     public List<SubCategoryResponse> getAllSubCategory () {
         List<SubCategoryDocument> subCategoryDocumentList=subCategoryRepository.findAll();
         List<SubCategoryResponse> productResponseList=new ArrayList<>();
-        Map<String, String> mp = categoryData(false);
+        Map<String, String> mp = categoryData(true);
         for(SubCategoryDocument sub: subCategoryDocumentList){
             SubCategoryResponse subCat=new SubCategoryResponse();
             subCat.setId(sub.getId());
@@ -262,6 +259,28 @@ public class ProductServiceImpl implements ProductService {
         // Save to the database
         productEnquiryRepository.save(enquiry);
         return "Enquiry save successfully";
+    }
+
+    @Override
+    public List<ProductResponse> getAllBestSellingProduct () {
+        List<ProductCategoryDocument> productCategoryDocumentList=productCategoryRepository.getAllBestSeller();
+        List<ProductResponse> productCategoryResponseList=new ArrayList<>();
+        Map<String,String>mp1=categoryData(true);
+        Map<String,String>mp2=subCategoryData();
+        for(ProductCategoryDocument document: productCategoryDocumentList){
+            ProductResponse proRes=new ProductResponse();
+            proRes.setId(document.getId());
+            proRes.setName(document.getName());
+            proRes.setDescription(document.getDescription());
+            proRes.setImageUrl(document.getImageUrl());
+            proRes.setTags(document.getTags());
+            proRes.setCategoryName(mp1.get(document.getCategoryId()));
+            proRes.setSubCategoryName(mp2.get(document.getSubCategoryId()));
+            proRes.setFeatured(document.isFeatured());
+            proRes.setBestSeller(document.isBestSeller());
+            productCategoryResponseList.add(proRes);
+        }
+        return productCategoryResponseList;
     }
 
 

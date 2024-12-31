@@ -95,4 +95,15 @@ public class ProductController {
         }
     }
 
+    @GetMapping("/bestsellingproduct")
+    public ResponseEntity<List<ProductResponse>> fetchAllBestSellingProduct() {
+        try {
+            List<ProductResponse> response=productService.getAllBestSellingProduct();
+            return ResponseEntity.ok().body(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ArrayList<>());
+        }
+    }
+
 }

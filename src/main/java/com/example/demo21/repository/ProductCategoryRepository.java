@@ -21,4 +21,6 @@ public interface ProductCategoryRepository extends MongoRepository<ProductCatego
     List<ProductCategoryDocument> findByCategoryId(String id);
     @Query("{'name':?0}")
     ProductCategoryDocument findByName(String name);
+    @Query("{'bestSeller': true}")
+    List<ProductCategoryDocument> getAllBestSeller();
 }

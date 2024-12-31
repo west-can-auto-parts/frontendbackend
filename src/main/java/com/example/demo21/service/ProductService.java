@@ -20,4 +20,5 @@ public interface ProductService {
     public List<ProductResponse> getProductCategoryByCategoryName(String categoryName);
     public SubCategoryResponse getSubCategoryByName(String name);
     public String saveEnquiry(ProductEnquiryRequest enquiryRequest);
+    public List<ProductResponse> getAllBestSellingProduct();
 }
