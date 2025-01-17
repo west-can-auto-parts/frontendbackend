@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/product")
@@ -43,7 +44,8 @@ public class ProductController {
 
     @GetMapping("/subcategory/{name}")
     public ResponseEntity<SubCategoryResponse> fetchSubCategoryByName(@PathVariable ("name") String name){
-        SubCategoryResponse responses =productService.getSubCategoryByName(name);
+        String originalName = slugToOriginalName(name);
+        SubCategoryResponse responses =productService.getSubCategoryByName(originalName);
         return ResponseEntity.ok().body(responses);
     }
 
@@ -56,15 +58,45 @@ public class ProductController {
     }
     @GetMapping("/product-category/{name}")
     public ResponseEntity<ProductResponse> fetchProductCategoryById(@PathVariable ("name") String name){
-        ProductResponse responses =productService.getProductCategoryByName(name);
+        String originalName = slugToOriginalName(name);
+        ProductResponse responses = productService.getProductCategoryByName(originalName);
         return ResponseEntity.ok().body(responses);
     }
+
+    // Helper method to convert slug to original name
+    private String slugToOriginalName(String slug) {
+        slug = slug.replace("and", "&");
+
+        return capitalizeFirstLetterOfEachWord(slug.replace("-", " "));
+    }
+    private String capitalizeFirstLetterOfEachWord(String str) {
+        if (str == null || str.isEmpty()) {
+            return str;
+        }
+
+        // Split the string into words, capitalize the first letter of each word, and join them back
+        String[] words = str.split(" ");
+        StringBuilder capitalizedStr = new StringBuilder();
+
+        for (String word : words) {
+            if (!word.isEmpty()) {
+                capitalizedStr.append(word.substring(0, 1).toUpperCase())
+                        .append(word.substring(1).toLowerCase()) // Keep the rest of the word lowercase
+                        .append(" ");
+            }
+        }
+
+        // Trim the trailing space and return the result
+        return capitalizedStr.toString().trim();
+    }
+
 
     @GetMapping("/products-category/subCategoryName")
     public ResponseEntity<List<ProductResponse>> getProductsBySubCategoryName(
             @RequestParam String subCategoryName) {
+        String originalName = slugToOriginalName(subCategoryName);
         List<ProductResponse> productCategories =
-                productService.getProductCategoriesBySubCategoryName(subCategoryName);
+                productService.getProductCategoriesBySubCategoryName(originalName);
         return ResponseEntity.ok(productCategories);
     }
 
@@ -104,6 +136,12 @@ public class ProductController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ArrayList<>());
         }
+    }
+
+    @GetMapping("/shop-by-category")
+    public ResponseEntity<Map<String, Map<String, String>>> shopByCategory() {
+        Map<String, Map<String, String>> response=productService.getShopByCategory();
+       return ResponseEntity.ok().body(response);
     }
 
 }

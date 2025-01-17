@@ -3,10 +3,7 @@ package com.example.demo21.service.Implementation;
 import com.example.demo21.dto.ProductEnquiryRequest;
 import com.example.demo21.dto.ProductResponse;
 import com.example.demo21.dto.SubCategoryResponse;
-import com.example.demo21.entity.CategoryDocument;
-import com.example.demo21.entity.ProductCategoryDocument;
-import com.example.demo21.entity.ProductEnquiryDocument;
-import com.example.demo21.entity.SubCategoryDocument;
+import com.example.demo21.entity.*;
 import com.example.demo21.repository.*;
 import com.example.demo21.service.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +25,9 @@ public class ProductServiceImpl implements ProductService {
 
     @Autowired
     private ProductEnquiryRepository productEnquiryRepository;
+
+    @Autowired
+    private ContactServiceImpl contactService;
 
     @Override
     public List<ProductResponse> getAllCategory () {
@@ -256,7 +256,15 @@ public class ProductServiceImpl implements ProductService {
         enquiry.setProductName(enquiryRequest.getProductName());
         enquiry.setMessage(enquiryRequest.getMessage());
 
-        // Save to the database
+        String subject = "Product Enquiry";
+        String text = "A new contact has been saved with the following details:\n\n"
+                + "Name: " + enquiryRequest.getName() + "\n"
+                + "Email: " + enquiryRequest.getEmail() + "\n"
+                + "Product Name: " + enquiryRequest.getProductName() + "\n"
+                + "Store: " + enquiryRequest.getStore() + "\n"
+                + "Message: " + enquiryRequest.getMessage();
+
+        contactService.sendEmail("adityagupta.bhl@gmail.com", subject, text);
         productEnquiryRepository.save(enquiry);
         return "Enquiry save successfully";
     }
@@ -283,6 +291,25 @@ public class ProductServiceImpl implements ProductService {
         return productCategoryResponseList;
     }
 
+    @Override
+    public Map<String, Map<String, String>> getShopByCategory() {
+        List<ProductCategoryDocument> productCategoryDocumentList = productCategoryRepository.findAll();
+        Map<String, String> mp1 = categoryData(true);
+        Map<String, String> mp2 = subCategoryData();
+        Map<String, Map<String, String>> result = new HashMap<>();
+
+        for (ProductCategoryDocument pro : productCategoryDocumentList) {
+            String subCategoryName = mp2.get(pro.getSubCategoryId());
+            if (subCategoryName == null) {
+                continue;
+            }
+
+            result.computeIfAbsent(subCategoryName, k -> new HashMap<>())
+                    .put(pro.getName(), mp1.get(pro.getCategoryId()));
+        }
+
+        return result;
+    }
 
     public Map<String,String> categoryData(boolean value){
         List<CategoryDocument> categoryDocumentsList=categoryRepository.findAll();
