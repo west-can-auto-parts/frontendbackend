@@ -125,7 +125,7 @@ public class AuthServiceImpl implements AuthService, OAuth2UserService<OAuth2Use
             publicUserRepository.save(user);
 
             String resetLink =passwordResetUrl + "/reset-password?token=" + resetToken;
-            contactService.sendEmail("adityagupta.bhl@gmail.com","Reset Password", resetLink);
+            contactService.sendEmail(loginRequest.getEmail(), "Reset Password", resetLink);
         }
         return "Password updated successfully.";
     }
