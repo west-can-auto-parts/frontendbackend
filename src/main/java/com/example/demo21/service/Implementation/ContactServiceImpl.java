@@ -52,7 +52,7 @@ public class ContactServiceImpl implements ContactService {
                 + "Agreed: " + contact.isAgreed() + "\n"
                 + "Created At: " + contact.getCreatedAt();
 
-        sendEmail("aditya.gupta@westcanauto.com", subject, text);
+        sendEmail("info@westcanauto.com", subject, text);
         contactRepository.save(contact);
 
         // Create response

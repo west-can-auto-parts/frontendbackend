@@ -373,7 +373,7 @@ public class ProductServiceImpl implements ProductService {
                 + "Store: " + enquiryRequest.getStore() + "\n"
                 + "Message: " + enquiryRequest.getMessage();
 
-        contactService.sendEmail("adityagupta.bhl@gmail.com", subject, text);
+        contactService.sendEmail("info@westcanauto.com", subject, text);
         productEnquiryRepository.save(enquiry);
         return "Enquiry save successfully";
     }
