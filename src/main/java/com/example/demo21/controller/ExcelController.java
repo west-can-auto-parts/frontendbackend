@@ -1,6 +1,13 @@
 package com.example.demo21.controller;
 
 import com.example.demo21.service.Implementation.ExcelServiceImpl;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -14,13 +21,21 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/excel")
+@Tag(name = "Excel", description = "Excel file processing API endpoints")
 public class ExcelController {
 
     @Autowired
     private ExcelServiceImpl excelService;
 
+    @Operation(summary = "Upload and process Excel file", description = "Upload an Excel file, process it, and download the updated version")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Excel file processed successfully",
+                    content = @Content(mediaType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
     @PostMapping("/uploadAndDownload")
-    public ResponseEntity<byte[]> uploadAndDownloadExcel(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<byte[]> uploadAndDownloadExcel(
+            @Parameter(description = "Excel file to be processed") @RequestParam("file") MultipartFile file) {
         try {
             byte[] updatedFile = excelService.processAndDownloadExcel(file); // Process the Excel and return as byte array
 
@@ -39,9 +54,14 @@ public class ExcelController {
         }
     }
 
+    @Operation(summary = "Get images from folder", description = "Retrieve a list of image details from the specified folder")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved image list"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
     @GetMapping("/folder")
-    public List<Map> getImagesInFolder(@RequestParam String folderName) throws Exception {
+    public List<Map> getImagesInFolder(
+            @Parameter(description = "Name of the folder containing images") @RequestParam String folderName) throws Exception {
         return excelService.getImagesInFolder(folderName);
     }
-
 }

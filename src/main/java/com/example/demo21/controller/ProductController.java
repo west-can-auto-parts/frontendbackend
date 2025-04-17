@@ -1,12 +1,14 @@
 package com.example.demo21.controller;
 
 
-import com.example.demo21.dto.ProductEnquiryRequest;
-import com.example.demo21.dto.ProductRequest;
-import com.example.demo21.dto.ProductResponse;
-import com.example.demo21.dto.SubCategoryResponse;
+import com.example.demo21.dto.*;
 import com.example.demo21.entity.SubCategoryDocument;
 import com.example.demo21.service.ProductService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,11 +19,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/product")
 @CrossOrigin(origins = "*")
+@Tag(name = "Products", description = "Product management API endpoints")
 public class ProductController {
 
     private static final Logger logger = LoggerFactory.getLogger(ProductController.class);
@@ -29,6 +31,12 @@ public class ProductController {
     @Autowired
     private ProductService productService;
 
+
+    @Operation(summary = "Get all categories", description = "Retrieve a list of all product categories")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved category list"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
     @GetMapping(value = "/category", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<ProductResponse>> getAllCategory(){
         try {
@@ -43,6 +51,11 @@ public class ProductController {
         }
     }
 
+    @Operation(summary = "Get all subcategories", description = "Retrieve a list of all product subcategories")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved subcategory list"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
     @GetMapping(value = "/subcategory", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<SubCategoryResponse>> getAllSubCategory(){
         try {
@@ -57,28 +70,50 @@ public class ProductController {
         }
     }
 
+    @Operation(summary = "Get subcategories by category ID", description = "Retrieve subcategories belonging to a specific category")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved subcategory list")
+    })
     @GetMapping("/subcategory/category/{id}")
-    public ResponseEntity<List<SubCategoryDocument>> getAllCategory(@PathVariable ("id") String id){
+    public ResponseEntity<List<SubCategoryDocument>> getAllCategory(
+            @Parameter(description = "ID of the category") @PathVariable ("id") String id){
         List<SubCategoryDocument> pr=productService.getSubCategoryByCategoryId(id);
         return ResponseEntity.ok().body(pr);
     }
 
+    @Operation(summary = "Get subcategory by name", description = "Retrieve subcategory information by name")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved subcategory"),
+            @ApiResponse(responseCode = "404", description = "Subcategory not found")
+    })
     @GetMapping("/subcategory/{name}")
-    public ResponseEntity<SubCategoryResponse> fetchSubCategoryByName(@PathVariable ("name") String name){
+    public ResponseEntity<SubCategoryResponse> fetchSubCategoryByName(
+            @Parameter(description = "Name of the subcategory") @PathVariable ("name") String name){
         String originalName = slugToOriginalName(name);
         SubCategoryResponse responses =productService.getSubCategoryByName(originalName);
         return ResponseEntity.ok().body(responses);
     }
 
+    @Operation(summary = "Get products by category and subcategory", description = "Filter products by category and subcategory")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved filtered product list")
+    })
     @GetMapping("/product-category")
     public ResponseEntity<List<ProductResponse>> getProductsByCategoryAndSubCategory(
-            @RequestParam(required = false) String category,
-            @RequestParam(required = false) String subcategory) {
+            @Parameter(description = "Category filter") @RequestParam(required = false) String category,
+            @Parameter(description = "Subcategory filter") @RequestParam(required = false) String subcategory) {
         List<ProductResponse> products = productService.getProductCategoryByCatIdAndSubCatId(category, subcategory);
         return ResponseEntity.ok(products);
     }
+
+    @Operation(summary = "Get product category by name", description = "Retrieve product category information by name")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved product category"),
+            @ApiResponse(responseCode = "404", description = "Product category not found")
+    })
     @GetMapping("/product-category/{name}")
-    public ResponseEntity<ProductResponse> fetchProductCategoryById(@PathVariable ("name") String name){
+    public ResponseEntity<ProductResponse> fetchProductCategoryById(
+            @Parameter(description = "Name of the product category") @PathVariable ("name") String name){
         String originalName = slugToOriginalName(name);
         ProductResponse responses = productService.getProductCategoryByName(originalName);
         return ResponseEntity.ok().body(responses);
@@ -128,15 +163,24 @@ public class ProductController {
                 .replace(" , ", ", ");
     }
 
+    @Operation(summary = "Get product categories by subcategory name", description = "Retrieve products belonging to a specific subcategory")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved product categories")
+    })
     @GetMapping("/products-category/subCategoryName")
     public ResponseEntity<List<ProductResponse>> getProductsBySubCategoryName(
-            @RequestParam String subCategoryName) {
+            @Parameter(description = "Name of the subcategory") @RequestParam String subCategoryName) {
         String originalName = slugToOriginalName(subCategoryName);
         List<ProductResponse> productCategories =
                 productService.getProductCategoriesBySubCategoryName(originalName);
         return ResponseEntity.ok(productCategories);
     }
 
+    @Operation(summary = "Get all product categories", description = "Retrieve a list of all product categories")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved product category list"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
     @GetMapping(value = "/product-category/all", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<ProductResponse>> fetchAllProductCategory(){
         try {
@@ -150,8 +194,16 @@ public class ProductController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Collections.emptyList());
         }
     }
+
+    @Operation(summary = "Get products by category name", description = "Retrieve products belonging to a specific category")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved product list"),
+            @ApiResponse(responseCode = "400", description = "Invalid category name"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
     @GetMapping("/product-category/category/{categoryName}")
-    public ResponseEntity<List<ProductResponse>> getProductsByCategoryName(@PathVariable String categoryName) {
+    public ResponseEntity<List<ProductResponse>> getProductsByCategoryName(
+            @Parameter(description = "Name of the category") @PathVariable String categoryName) {
         try {
             List<ProductResponse> products = productService.getProductCategoryByCategoryName(categoryName);
             return ResponseEntity.ok(products);
@@ -161,8 +213,14 @@ public class ProductController {
             return ResponseEntity.status(500).body(new ArrayList<>());
         }
     }
+
+    @Operation(summary = "Submit product enquiry", description = "Submit an enquiry about a product")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Enquiry submitted successfully"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
     @PostMapping("/productenquiry")
-    public ResponseEntity<String> submitEnquiry( @RequestBody ProductEnquiryRequest enquiryRequest) {
+    public ResponseEntity<String> submitEnquiry(@RequestBody ProductEnquiryRequest enquiryRequest) {
         try {
             String response=productService.saveEnquiry(enquiryRequest);
             return ResponseEntity.ok().body(response);
@@ -172,6 +230,11 @@ public class ProductController {
         }
     }
 
+    @Operation(summary = "Get best selling products", description = "Retrieve a list of best selling products")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved best selling products"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
     @GetMapping("/bestsellingproduct")
     public ResponseEntity<List<ProductResponse>> fetchAllBestSellingProduct() {
         try {
@@ -183,6 +246,10 @@ public class ProductController {
         }
     }
 
+    @Operation(summary = "Get shop by category data", description = "Retrieve category mapping for shopping functionality")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved shop by category data")
+    })
     @GetMapping("/shop-by-category")
     public ResponseEntity<Map<String, Map<String, String>>> shopByCategory() {
         Map<String, Map<String, String>> response=productService.getShopByCategory();

@@ -6,6 +6,9 @@ import com.example.demo21.security.AuthEntryPointJwt;
 import com.example.demo21.security.AuthTokenFilter;
 import com.example.demo21.security.JwtUtils;
 import com.example.demo21.service.Implementation.CustomUserDetailsServiceImpl;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
+import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,7 +35,24 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@SecurityScheme(
+        name = "bearerAuth",
+        type = SecuritySchemeType.HTTP,
+        bearerFormat = "JWT",
+        scheme = "bearer",
+        in = SecuritySchemeIn.HEADER
+)
 public class SecurityConfig {
+
+    // Swagger API endpoints that should be publicly accessible
+    private static final String[] SWAGGER_ENDPOINTS = {
+            "/swagger-ui.html",
+            "/swagger-ui/**",
+            "/api-docs/**",
+            "/v3/api-docs/**",
+            "/swagger-resources/**",
+            "/webjars/**"
+    };
 
     @Autowired
     private AuthEntryPointJwt unauthorizedHandler;
@@ -58,6 +78,7 @@ public class SecurityConfig {
                 authorizeRequests
                         .requestMatchers("/sign-up").authenticated()
                         .requestMatchers("/oauth2/**").permitAll()
+                        .requestMatchers(SWAGGER_ENDPOINTS).permitAll() // Allow Swagger endpoints
                         .anyRequest().permitAll());
         http.sessionManagement(
                 session ->
