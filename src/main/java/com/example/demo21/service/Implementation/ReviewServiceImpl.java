@@ -2,6 +2,8 @@ package com.example.demo21.service.Implementation;
 
 import com.example.demo21.dto.ReviewResponse;
 import com.example.demo21.service.ReviewService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class ReviewServiceImpl implements ReviewService {
+
+    private static final Logger logger = LoggerFactory.getLogger(ReviewServiceImpl.class);
 
     @Value("${google.api.key}")
     private String googleApiKey;
@@ -51,13 +55,10 @@ public class ReviewServiceImpl implements ReviewService {
                 if (result == null || !result.containsKey("reviews")) continue;
 
                 List<Map<String, Object>> reviews = (List<Map<String, Object>>) result.get("reviews");
-
+                logger.info("List of all reviews: "+reviews);
                 for (Map<String, Object> review : reviews) {
                     Integer rating = (Integer) review.get("rating");
-                    System.out.println("Rating number: "+rating);
                     Long time = ((Number) review.get("time")).longValue();
-                    System.out.println("Review Time: "+time);
-                    System.out.println("Code time "+cutoffEpoch);
                     if (rating != null && rating==5 && time >= cutoffEpoch) {
                         String name = (String) review.get("author_name");
                         String authorUrl = (String) review.get("author_url");
@@ -70,14 +71,14 @@ public class ReviewServiceImpl implements ReviewService {
                         rr.setDescription(text);
                         rr.setPhotoUrl(profilePhotoUrl);
                         allFilteredReviews.add(rr);
+
                     }
                 }
             } catch (Exception e) {
-                System.err.println("Error fetching reviews for place ID: " + placeId);
                 e.printStackTrace();
             }
+            logger.info("Author name reviews: "+allFilteredReviews);
         }
-
         return allFilteredReviews;
     }
 }
