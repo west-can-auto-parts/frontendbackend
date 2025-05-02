@@ -15,6 +15,7 @@ public class SuppliersResponse {
     private Map<String,Integer> subCategoryAndPosition;
     private List<String> productCategory;
     private Map<String,SupplierSubCategoryResponse> subCategory;
+    private String bannerUrl;
 
     public SuppliersResponse(String id, String name, String logoUrl) {
         this.id = id;
@@ -34,11 +35,12 @@ public class SuppliersResponse {
         this.productCategory = productCategory;
     }
 
-    public SuppliersResponse (String id, String name, String imageUrl, String description, Map<String, SupplierSubCategoryResponse> subCategory) {
+    public SuppliersResponse (String id, String name, String imageUrl, String description, Map<String, SupplierSubCategoryResponse> subCategory,String bannerUrl) {
         this.id = id;
         this.name = name;
         this.imageUrl = imageUrl;
         this.description = description;
         this.subCategory = subCategory;
+        this.bannerUrl=bannerUrl;
     }
 }

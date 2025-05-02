@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 @Data
-@Document(collection = "TempSuppliers")
+@Document(collection = "Suppliers")
 public class SuppliersDocument {
     private String id;
     private String name;
@@ -16,4 +16,5 @@ public class SuppliersDocument {
     private List<String> category;
     private Map<String,Integer> subCategoryAndPosition;
     private List<String> productCategory;
+    private String bannerUrl;
 }

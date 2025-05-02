@@ -79,7 +79,8 @@ public class SuppliersServiceImpl implements SuppliersService {
                     suppliersDocument.getName(),
                     suppliersDocument.getImageUrl(),
                     suppliersDocument.getDescription(),
-                    new HashMap<>() // Empty subCategory map
+                    new HashMap<>(), // Empty subCategory map
+                    suppliersDocument.getBannerUrl()
             );
         }
 
@@ -126,7 +127,8 @@ public class SuppliersServiceImpl implements SuppliersService {
                 suppliersDocument.getName(),
                 suppliersDocument.getImageUrl(),
                 suppliersDocument.getDescription(),
-                suppSubCat
+                suppSubCat,
+                suppliersDocument.getBannerUrl()
         );
     }
 
