@@ -46,7 +46,14 @@ public class VehicleController {
     // GET /api/models/{id}
     @GetMapping("/model/{name}")
     public ResponseEntity<ModelResponse> getModelById(@PathVariable String name) {
-        name=slugToOriginalName(name);
+        String vehicleName=getVehicleName(name);
+        name=removeVehicleName(name);
+        if(vehicleName.equals("jaguar")|| vehicleName.equals("mazda")|| vehicleName.equals("honda")){
+            name=slugToEspecialName(name,vehicleName);
+        }
+        else {
+            name = slugToOriginalName(name);
+        }
         ModelResponse model = vehicleService.getModelByName(name);
         if (model != null) {
             return ResponseEntity.ok(model);
@@ -61,5 +68,45 @@ public class VehicleController {
         // Replace hyphens with spaces, underscores with slashes, and convert the string to uppercase
         return slug.replace("-", " ").replace("%2B","-").replace("_", "/").toUpperCase();
     }
+    private String slugToEspecialName(String slug,String vehicleName) {
+        if (slug == null || slug.isEmpty()) {
+            return slug;
+        }
+
+        slug = slug.replace("%2B", "-").replace("_", "/");
+
+        if ((vehicleName.equalsIgnoreCase("mazda") && !slug.contains("x-"))||(vehicleName.equalsIgnoreCase("honda") && !slug.contains("r-"))) {
+            return slug.replace("-", " ").replace("%2B","-").replace("_", "/").toUpperCase();
+        }
+
+        return slug.replace("%2B","-").replace("_", "/").toUpperCase();
+    }
+
+    private String removeVehicleName(String str) {
+        if (str == null || str.isEmpty()) {
+            return "";
+        }
+        if (str.contains("-")) {
+            String[] parts = str.split("-");
+            // Join all parts except the first one
+            return String.join("-", java.util.Arrays.copyOfRange(parts, 1, parts.length));
+        }
+        return str;
+    }
+
+    public static String getVehicleName(String str) {
+        if (str == null || str.isEmpty()) {
+            return "";
+        }
+        // Split by hyphen
+        String[] hyphenParts = str.split("-");
+        // Get the first part
+        String firstPart = hyphenParts[0];
+        // Split by whitespace
+        String[] words = firstPart.trim().split("\\s+");
+        // Return the first word if it exists
+        return words.length > 0 ? words[0] : "";
+    }
+
 }
 

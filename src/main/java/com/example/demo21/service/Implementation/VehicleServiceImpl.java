@@ -90,6 +90,7 @@ public class VehicleServiceImpl implements VehicleService {
                     response.setId(model.getId());
                     response.setName(model.getName());
                     response.setImageUrl(model.getImageUrl());
+                    response.setBannerImageUrl(model.getBannerImageUrl());
 
                     // Convert subCategoryAndPosition to expected format
                     Map<String, List<ProductItem>> convertedMap = new HashMap<>();

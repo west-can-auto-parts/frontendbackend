@@ -238,7 +238,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    @Cacheable(value = "products", key = "#subCategoryName")
+    @Cacheable(value = "products", key = "#subCategoryName",unless = "#result == null")
     public List<ProductResponse> getProductCategoriesBySubCategoryName (String subCategoryName) {
         SubCategoryDocument subCategory = subCategoryRepository.findByName(subCategoryName);
         if (subCategory == null) {

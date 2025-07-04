@@ -13,5 +13,6 @@ public class ModelDocument {
     private String id;
     private String name;
     private String imageUrl;
+    private String bannerImageUrl;
     private Map<String, List<ProductItem>> subCategoryAndProduct;
 }
