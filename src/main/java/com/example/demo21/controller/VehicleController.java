@@ -68,19 +68,34 @@ public class VehicleController {
         // Replace hyphens with spaces, underscores with slashes, and convert the string to uppercase
         return slug.replace("-", " ").replace("%2B","-").replace("_", "/").toUpperCase();
     }
-    private String slugToEspecialName(String slug,String vehicleName) {
+    private String slugToEspecialName(String slug, String vehicleName) {
         if (slug == null || slug.isEmpty()) {
             return slug;
         }
 
+        // Decode and normalize
         slug = slug.replace("%2B", "-").replace("_", "/");
 
-        if ((vehicleName.equalsIgnoreCase("mazda") && !slug.contains("x-"))||(vehicleName.equalsIgnoreCase("honda") && !slug.contains("r-"))) {
-            return slug.replace("-", " ").replace("%2B","-").replace("_", "/").toUpperCase();
+        // Only apply the rule for Mazda and Honda
+        boolean isMazda = vehicleName.equalsIgnoreCase("mazda") && !slug.contains("x-");
+        boolean isHonda = vehicleName.equalsIgnoreCase("honda") && !slug.contains("r-");
+
+        if (isMazda || isHonda) {
+            // Remove only the second hyphen
+            int first = slug.indexOf("-");
+            int second = slug.indexOf("-", first + 1);
+            if (second != -1) {
+                slug = slug.substring(0, second) + slug.substring(second + 1);
+            }
+
+            // Convert to uppercase and replace remaining hyphens with spaces
+            return slug.replace("-", " ").toUpperCase();
         }
 
-        return slug.replace("%2B","-").replace("_", "/").toUpperCase();
+        // Default case
+        return slug.toUpperCase();
     }
+
 
     private String removeVehicleName(String str) {
         if (str == null || str.isEmpty()) {

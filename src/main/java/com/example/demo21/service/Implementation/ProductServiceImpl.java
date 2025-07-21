@@ -396,6 +396,7 @@ public class ProductServiceImpl implements ProductService {
             proRes.setSubCategoryName(mp2.get(document.getSubCategoryId()));
             proRes.setFeatured(document.isFeatured());
             proRes.setBestSeller(document.isBestSeller());
+            proRes.setBestSellerPosition(document.getBestSellerPosition());
             productCategoryResponseList.add(proRes);
         }
         return productCategoryResponseList;

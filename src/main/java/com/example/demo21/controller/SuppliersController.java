@@ -49,7 +49,8 @@ public class SuppliersController {
 
     @Operation(summary = "Get supplier by name", description = "Retrieve a specific supplier by name")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Successfully retrieved supplier details",
+            @ApiResponse(responseCode =
+                    "200", description = "Successfully retrieved supplier details",
                     content = @Content(schema = @Schema(implementation = SuppliersResponse.class))),
             @ApiResponse(responseCode = "404", description = "Supplier not found")
     })

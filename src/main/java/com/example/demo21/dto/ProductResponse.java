@@ -21,6 +21,7 @@ public class ProductResponse {
     private boolean featured;
     private boolean bestSeller;
     private Integer productPosition;
+    private int bestSellerPosition;
     private Map<String,Integer> brandAndPosition;
 
     public ProductResponse (String name, List<String> imageUrl, String categoryName, String subCategoryName) {

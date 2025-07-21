@@ -167,9 +167,9 @@ public class ProductController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Successfully retrieved product categories")
     })
-    @GetMapping("/products-category/subCategoryName/{subCategoryName}")
+    @GetMapping("/products-category/subCategoryName")
     public ResponseEntity<List<ProductResponse>> getProductsBySubCategoryName(
-            @Parameter(description = "Name of the subcategory") @PathVariable String subCategoryName) {
+            @RequestParam String subCategoryName) {
         String originalName = slugToOriginalName(subCategoryName);
         List<ProductResponse> productCategories =
                 productService.getProductCategoriesBySubCategoryName(originalName);

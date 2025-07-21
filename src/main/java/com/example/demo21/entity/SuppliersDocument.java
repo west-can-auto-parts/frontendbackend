@@ -1,6 +1,7 @@
 package com.example.demo21.entity;
 
 import lombok.Data;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.List;
@@ -10,6 +11,7 @@ import java.util.Map;
 @Document(collection = "Suppliers")
 public class SuppliersDocument {
     private String id;
+    @Indexed(unique = true)
     private String name;
     private String imageUrl;
     private String description;
