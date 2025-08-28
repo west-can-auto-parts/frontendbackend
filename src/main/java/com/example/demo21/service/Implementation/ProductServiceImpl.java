@@ -24,6 +24,14 @@ import java.util.stream.Collectors;
 public class ProductServiceImpl implements ProductService {
     private static final Logger logger = LoggerFactory.getLogger(ProductServiceImpl.class);
 
+    // Constants for better maintainability
+    private static final String REPLACEMENT_PARTS = "Replacement Parts";
+    private static final String FLUIDS_LUBRICANTS = "Fluids & Lubricants";
+    private static final String TOOLS_EQUIPMENTS = "Tools & Equipments";
+    private static final String INDUSTRIAL_SAFETY = "Industrial & Safety";
+    private static final String ADMIN_EMAIL = "info@westcanauto.com";
+    private static final int CACHE_TTL_HOURS = 48;
+
     @Autowired
     private CategoryRepository categoryRepository;
 
@@ -38,509 +46,384 @@ public class ProductServiceImpl implements ProductService {
 
     @Autowired
     private ContactServiceImpl contactService;
-    
+
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
-    
-    // Cache maps for faster access - initialized lazily to prevent startup errors
-    private volatile Map<String, String> categoryIdToNameMap;
-    private volatile Map<String, String> categoryNameToIdMap;
-    private volatile Map<String, String> subCategoryIdToNameMap;
-    
-    // Instead of eager loading at startup, we'll initialize these maps lazily
-    // This prevents application startup failures due to Redis connection issues
-    
-    // Helper method to get category name safely
-    private String getCategoryName(String categoryId) {
-        if (categoryIdToNameMap == null) {
-            synchronized (this) {
-                if (categoryIdToNameMap == null) {
-                    try {
-                        categoryIdToNameMap = categoryData(true);
-                    } catch (Exception e) {
-                        logger.error("Error initializing categoryIdToNameMap", e);
-                        return null;
-                    }
-                }
-            }
-        }
-        return categoryIdToNameMap.get(categoryId);
-    }
-    
-    // Helper method to get subcategory name safely
-    private String getSubCategoryName(String subCategoryId) {
-        if (subCategoryIdToNameMap == null) {
-            synchronized (this) {
-                if (subCategoryIdToNameMap == null) {
-                    try {
-                        subCategoryIdToNameMap = subCategoryData();
-                    } catch (Exception e) {
-                        logger.error("Error initializing subCategoryIdToNameMap", e);
-                        return null;
-                    }
-                }
-            }
-        }
-        return subCategoryIdToNameMap != null ? subCategoryIdToNameMap.get(subCategoryId) : null;
-    }
-    
-    // Helper method to get category id safely
-    private String getCategoryId(String categoryName) {
-        if (categoryNameToIdMap == null) {
-            synchronized (this) {
-                if (categoryNameToIdMap == null) {
-                    try {
-                        categoryNameToIdMap = categoryData(false);
-                    } catch (Exception e) {
-                        logger.error("Error initializing categoryNameToIdMap", e);
-                        return null;
-                    }
-                }
-            }
-        }
-        return categoryNameToIdMap != null ? categoryNameToIdMap.get(categoryName) : null;
-    }
 
     @Override
     @Cacheable(value = "categories")
     public List<ProductResponse> getAllCategory() {
         try {
             List<CategoryDocument> categoryDocuments = categoryRepository.findAll();
-            
-            // Use stream for better performance
+
             return categoryDocuments.stream()
                     .map(this::mapCategoryToProductResponse)
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            logger.error("Error in getAllCategory", e);
+            logger.error("Error retrieving all categories", e);
             return Collections.emptyList();
         }
-    }
-    
-    // Helper method to map CategoryDocument to ProductResponse
-    private ProductResponse mapCategoryToProductResponse(CategoryDocument cd) {
-        ProductResponse pr = new ProductResponse();
-        pr.setId(cd.getId());
-        pr.setName(cd.getName());
-        pr.setDescription(cd.getDescription());
-        pr.setImageUrl(cd.getImages());
-        pr.setTags(cd.getTags());
-        pr.setFeatured(cd.isFeatured());
-        pr.setBestSeller(cd.isBestSeller());
-        return pr;
     }
 
     @Override
     @Cacheable(value = "subcategories")
     public List<SubCategoryResponse> getAllSubCategory() {
         try {
-            List<SubCategoryDocument> subCategoryDocumentList = subCategoryRepository.findAll();
-            
-            // Use stream for better performance and reuse existing map
-            return subCategoryDocumentList.stream()
-                    .map(sub -> {
-                        SubCategoryResponse subCat = new SubCategoryResponse();
-                        subCat.setId(sub.getId());
-                        subCat.setName(sub.getName());
-                        subCat.setDescription(sub.getDescription());
-                        subCat.setCategoryName(getCategoryName(sub.getCategoryId()));
-                        subCat.setImages(sub.getImages());
-                        subCat.setTags(sub.getTags());
-                        subCat.setFeatured(sub.isFeatured());
-                        subCat.setBestSeller(sub.isBestSeller());
-                        return subCat;
-                    })
+            List<SubCategoryDocument> subCategoryDocuments = subCategoryRepository.findAll();
+            return subCategoryDocuments.stream()
+                    .map(this::mapSubCategoryToResponse)
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            logger.error("Error in getAllSubCategory", e);
+            logger.error("Error retrieving all subcategories", e);
             return Collections.emptyList();
         }
     }
 
     @Override
     @Cacheable(value = "subcategories", key = "#id")
-    public List<SubCategoryDocument> getSubCategoryByCategoryId (String id) {
+    public List<SubCategoryDocument> getSubCategoryByCategoryId(String id) {
+        try {
+            List<SubCategoryDocument> subCategoryDocuments = subCategoryRepository.findByCategoryId(id);
 
-        List<SubCategoryDocument> subCategoryDocument=subCategoryRepository.findByCategoryId(id);
-        List<SubCategoryDocument> subCatName=new ArrayList<>();
-
-        for(SubCategoryDocument cd:subCategoryDocument){
-            SubCategoryDocument subCatDoc =new SubCategoryDocument();
-            subCatDoc.setId(cd.getId());
-            subCatDoc.setName(cd.getName());
-            subCatName.add(subCatDoc);
+            return subCategoryDocuments.stream()
+                    .map(this::mapToSimpleSubCategory)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            logger.error("Error retrieving subcategories for categoryId: {}", id, e);
+            return Collections.emptyList();
         }
-        return subCatName;
     }
 
     @Override
     @Cacheable(value = "products", key = "#categoryId + '_' + #subCategoryId")
     public List<ProductResponse> getProductCategoryByCatIdAndSubCatId(String categoryId, String subCategoryId) {
-        List<ProductCategoryDocument> productCategoryDocumentList = new ArrayList<>();
-
-        // If only categoryId is provided and subCategoryId is null
-        if (categoryId != null && subCategoryId == null) {
-            productCategoryDocumentList = productCategoryRepository.findByCategoryIds(categoryId,null);
+        try {
+            List<ProductCategoryDocument> productDocuments = fetchProductDocuments(categoryId, subCategoryId);
+            if (productDocuments.isEmpty()) {
+                return Collections.emptyList();
+            }
+            return productDocuments.stream()
+                    .map(this::mapProductToResponse)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            logger.error("Error retrieving products for categoryId: {} and subCategoryId: {}",
+                    categoryId, subCategoryId, e);
+            return Collections.emptyList();
         }
-        // If both categoryId and subCategoryId are provided
-        else {
-            productCategoryDocumentList = productCategoryRepository.findByCategoryAndSubcategory(categoryId, subCategoryId);
-        }
-
-        // If no products are found, return an empty list
-        if (productCategoryDocumentList.isEmpty()) {
-            return new ArrayList<>();
-        }
-
-        List<ProductResponse> productResponseList = new ArrayList<>();
-        Map<String, String> mp1 = categoryData(true);
-        Map<String, String> mp2 = subCategoryData();
-        for (ProductCategoryDocument pro : productCategoryDocumentList) {
-            ProductResponse proRes = new ProductResponse();
-            proRes.setId(pro.getId());
-            proRes.setName(pro.getName());
-            proRes.setDescription(pro.getDescription());
-            proRes.setImageUrl(pro.getImageUrl());
-            proRes.setCategoryName(mp1.get(pro.getCategoryId()));
-            proRes.setSubCategoryName(mp2.get(pro.getSubCategoryId()));
-            proRes.setTags(pro.getTags());
-            proRes.setFeatured(pro.isFeatured());
-            proRes.setBestSeller(pro.isBestSeller());
-            productResponseList.add(proRes);
-        }
-
-        return productResponseList;
     }
-
 
     @Override
     @Cacheable(value = "products", key = "#name")
-    public ProductResponse getProductCategoryByName (String name) {
-        ProductCategoryDocument document = productCategoryRepository.findByName(name);
-        if(document!=null) {
-            Map<String, String> mp1 = categoryData(true);
-            Map<String, String> mp2 = subCategoryData();
-            ProductResponse response = new ProductResponse();
-            response.setId(document.getId());
-            response.setName(document.getName());
-            response.setDescription(document.getDescription());
-            response.setImageUrl(document.getImageUrl());
-            response.setTags(document.getTags());
-            response.setCategoryName(mp1.get(document.getCategoryId()));
-            response.setSubCategoryName(mp2.get(document.getSubCategoryId()));
-            response.setFeatured(document.isFeatured());
-            response.setBestSeller(document.isBestSeller());
+    public ProductResponse getProductCategoryByName(String name) {
+        try {
+            ProductCategoryDocument document = productCategoryRepository.findByName(name);
+
+            if (document == null) {
+                return null;
+            }
+            ProductResponse response = mapProductToResponse(document);
             response.setProductPosition(document.getProductPosition());
             response.setBrandAndPosition(document.getBrandAndPosition());
+
             return response;
+        } catch (Exception e) {
+            logger.error("Error retrieving product by name: {}", name, e);
+            return null;
         }
-        else return null;
     }
 
     @Override
-    @Cacheable(value = "products", key = "#subCategoryName",unless = "#result == null")
-    public List<ProductResponse> getProductCategoriesBySubCategoryName (String subCategoryName) {
-        SubCategoryDocument subCategory = subCategoryRepository.findByName(subCategoryName);
-        if (subCategory == null) {
-            throw new RuntimeException("SubCategory not found with name: " + subCategoryName);
+    @Cacheable(value = "products", key = "#subCategoryName")
+    public List<ProductResponse> getProductCategoriesBySubCategoryName(String subCategoryName) {
+        try {
+            List<ProductCategoryDocument> productDocuments =
+                    productCategoryRepository.findBySubCategoryName(subCategoryName);
+
+            return productDocuments.stream()
+                    .map(this::mapProductToResponseWithDirectNames)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            logger.error("Error retrieving products by subcategory name: {}", subCategoryName, e);
+            return Collections.emptyList();
         }
-        String subCategoryId = subCategory.getId();
-        List<ProductCategoryDocument> productCategoryDocumentList=productCategoryRepository.findBySubCategoryId(subCategoryId);
-        List<ProductResponse> productResponseList=new ArrayList<>();
-        Map<String,String> mp1=categoryData(true);
-        Map<String,String>mp2=subCategoryData();
-        for (ProductCategoryDocument pro : productCategoryDocumentList) {
-            ProductResponse proRes = new ProductResponse();
-            proRes.setId(pro.getId());
-            proRes.setName(pro.getName());
-            proRes.setDescription(pro.getDescription());
-            proRes.setImageUrl(pro.getImageUrl());
-            proRes.setCategoryName(mp1.get(pro.getCategoryId()));
-            proRes.setSubCategoryName(mp2.get(pro.getSubCategoryId()));
-            proRes.setTags(pro.getTags());
-            proRes.setFeatured(pro.isFeatured());
-            proRes.setBestSeller(pro.isBestSeller());
-            productResponseList.add(proRes);
-        }
-        return productResponseList;
     }
 
     @Override
-    @Cacheable(value = "products")
+    @Cacheable(value = "products", key = "'all'")
     public List<ProductResponse> getAllProductCategory() {
-        List<ProductCategoryDocument> productCategoryDocumentList = productCategoryRepository.findAll();
-        
-        // Process in parallel for better performance
-        return productCategoryDocumentList.parallelStream()
-                .map(document -> {
-                    ProductResponse proRes = new ProductResponse();
-                    proRes.setId(document.getId());
-                    proRes.setName(document.getName());
-                    proRes.setDescription(document.getDescription());
-                    proRes.setImageUrl(document.getImageUrl());
-                    proRes.setTags(document.getTags());
-                    proRes.setCategoryName(getCategoryName(document.getCategoryId()));
-                    proRes.setSubCategoryName(getSubCategoryName(document.getSubCategoryId()));
-                    proRes.setFeatured(document.isFeatured());
-                    proRes.setBestSeller(document.isBestSeller());
-                    return proRes;
-                })
-                .collect(Collectors.toList());
+        try {
+            long startTime = System.nanoTime();
+            List<ProductCategoryDocument> productDocuments = productCategoryRepository.findAll();
+            List<ProductResponse> result = productDocuments.stream()
+                    .map(this::mapProductToResponse)
+                    .collect(Collectors.toList());
+
+            logTimeTaken("getAllProductCategory", startTime);
+            return result;
+        } catch (Exception e) {
+            logger.error("Error retrieving all products", e);
+            return Collections.emptyList();
+        }
     }
 
     @Override
     @Cacheable(value = "products", key = "#categoryName")
     public List<ProductResponse> getProductCategoryByCategoryName(String categoryName) {
         try {
-            String categoryId1 = "";
-            String categoryId2 = "";
             long startTime = System.nanoTime();
-            
-            if(categoryName.equals("Replacement Parts")) {
-                categoryId1 = getCategoryId(categoryName);
-                categoryId2 = getCategoryId("Fluids & Lubricants");
-            }
-            else {
-                categoryId1 = getCategoryId("Tools & Equipments");
-                categoryId2 = getCategoryId("Industrial & Safety");
-            }
-            
-            if (categoryId1 == null && categoryId2 == null) {
-                logger.error("Category IDs not found for {}", categoryName);
+            List<String> categoryNames = getCategoryNamesForSearch(categoryName);
+
+            if (categoryNames.isEmpty()) {
+                logger.warn("No category names found for search: {}", categoryName);
                 return Collections.emptyList();
             }
 
-            List<ProductCategoryDocument> productDocuments = productCategoryRepository.findByCategoryIds(categoryId1, categoryId2);
-            logTimeTaken("Product category loading", startTime);
-            return productDocuments.stream()
-                .map(productDocument -> {
-                    ProductResponse response = new ProductResponse();
-                    response.setId(productDocument.getId());
-                    response.setName(productDocument.getName());
-                    response.setDescription(productDocument.getDescription());
-                    response.setImageUrl(productDocument.getImageUrl());
-                    response.setCategoryName(getCategoryName(productDocument.getCategoryId()));
-                    response.setSubCategoryName(getSubCategoryName(productDocument.getSubCategoryId()));
-                    response.setTags(productDocument.getTags());
-                    response.setFeatured(productDocument.isFeatured());
-                    response.setBestSeller(productDocument.isBestSeller());
-                    return response;
-                })
-                .collect(Collectors.toList());
+            List<ProductCategoryDocument> productDocuments;
+
+            // Single category search
+            productDocuments = productCategoryRepository.findByCategoryName(categoryNames.get(0), categoryNames.get(1));
+
+            List<ProductResponse> result = productDocuments.stream()
+                    .map(this::mapProductToResponseDirect)
+                    .collect(Collectors.toList());
+
+            logTimeTaken("getProductCategoryByCategoryName for " + categoryName, startTime);
+            return result;
         } catch (Exception e) {
-            logger.error("Error in getProductCategoryByCategoryName for {}", categoryName, e);
+            logger.error("Error retrieving products by category name: {}", categoryName, e);
             return Collections.emptyList();
         }
     }
 
     @Override
     @Cacheable(value = "subcategories", key = "#name")
-    public SubCategoryResponse getSubCategoryByName (String name) {
-        SubCategoryDocument entity = subCategoryRepository.findByName(name);
-        Map<String,String> mp=categoryData(true);
-        // If present, map the entity to the response and return
-        if (entity!=null) {
-            SubCategoryResponse response = new SubCategoryResponse();
-            response.setId(entity.getId());
-            response.setName(entity.getName());
-            response.setDescription(entity.getDescription());
-            response.setCategoryName(mp.get(entity.getCategoryId()));
-            response.setImages(entity.getImages());
-            response.setTags(entity.getTags());
-            response.setFeatured(entity.isFeatured());
-            response.setBestSeller(entity.isBestSeller());
+    public SubCategoryResponse getSubCategoryByName(String name) {
+        try {
+            SubCategoryDocument entity = subCategoryRepository.findByName(name);
+
+            if (entity == null) {
+                return null;
+            }
+            SubCategoryResponse response = mapSubCategoryToResponse(entity);
             response.setProductCategoryAndPosition(entity.getProductCategoryAndPosition());
+
             return response;
+        } catch (Exception e) {
+            logger.error("Error retrieving subcategory by name: {}", name, e);
+            return null;
         }
-        return null;
     }
 
     @Override
     @CacheEvict(value = {"products", "categories", "subcategories"}, allEntries = true)
-    public String saveEnquiry (ProductEnquiryRequest enquiryRequest) {
-        ProductEnquiryDocument enquiry = new ProductEnquiryDocument();
-        enquiry.setName(enquiryRequest.getName());
-        enquiry.setEmail(enquiryRequest.getEmail());
-        enquiry.setStore(enquiryRequest.getStore());
-        enquiry.setProductName(enquiryRequest.getProductName());
-        enquiry.setMessage(enquiryRequest.getMessage());
+    public String saveEnquiry(ProductEnquiryRequest enquiryRequest) {
+        try {
+            ProductEnquiryDocument enquiry = mapEnquiryRequestToDocument(enquiryRequest);
 
-        String subject = "Product Enquiry";
-        String text = "A new contact has been saved with the following details:\n\n"
-                + "Name: " + enquiryRequest.getName() + "\n"
-                + "Email: " + enquiryRequest.getEmail() + "\n"
-                + "Product Name: " + enquiryRequest.getProductName() + "\n"
-                + "Store: " + enquiryRequest.getStore() + "\n"
-                + "Message: " + enquiryRequest.getMessage();
+            String subject = "Product Enquiry";
+            String emailText = buildEnquiryEmailText(enquiryRequest);
 
-        contactService.sendEmail("info@westcanauto.com", subject, text);
-        productEnquiryRepository.save(enquiry);
-        return "Enquiry save successfully";
+            contactService.sendEmail(ADMIN_EMAIL, subject, emailText);
+            productEnquiryRepository.save(enquiry);
+
+            logger.info("Product enquiry saved successfully for email: {}", enquiryRequest.getEmail());
+            return "Enquiry saved successfully";
+        } catch (Exception e) {
+            logger.error("Error saving product enquiry", e);
+            throw new RuntimeException("Failed to save enquiry", e);
+        }
     }
 
     @Override
     @Cacheable(value = "products", key = "'bestsellers'")
-    public List<ProductResponse> getAllBestSellingProduct () {
-        List<ProductCategoryDocument> productCategoryDocumentList=productCategoryRepository.getAllBestSeller();
-        List<ProductResponse> productCategoryResponseList=new ArrayList<>();
-        Map<String,String>mp1=categoryData(true);
-        Map<String,String>mp2=subCategoryData();
-        for(ProductCategoryDocument document: productCategoryDocumentList){
-            ProductResponse proRes=new ProductResponse();
-            proRes.setId(document.getId());
-            proRes.setName(document.getName());
-            proRes.setDescription(document.getDescription());
-            proRes.setImageUrl(document.getImageUrl());
-            proRes.setTags(document.getTags());
-            proRes.setCategoryName(mp1.get(document.getCategoryId()));
-            proRes.setSubCategoryName(mp2.get(document.getSubCategoryId()));
-            proRes.setFeatured(document.isFeatured());
-            proRes.setBestSeller(document.isBestSeller());
-            proRes.setBestSellerPosition(document.getBestSellerPosition());
-            productCategoryResponseList.add(proRes);
+    public List<ProductResponse> getAllBestSellingProduct() {
+        try {
+            List<ProductCategoryDocument> bestSellerDocuments = productCategoryRepository.getAllBestSeller();
+            return bestSellerDocuments.stream()
+                    .map(product -> {
+                        ProductResponse response = mapProductToResponse(product);
+                        response.setBestSellerPosition(product.getBestSellerPosition());
+                        return response;
+                    })
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            logger.error("Error retrieving best selling products", e);
+            return Collections.emptyList();
         }
-        return productCategoryResponseList;
     }
 
     @Override
     @Cacheable(value = "shopByCategory")
     public Map<String, Map<String, String>> getShopByCategory() {
-        List<ProductCategoryDocument> productCategoryDocumentList = productCategoryRepository.findAll();
-        Map<String, String> mp1 = categoryData(true);
-        Map<String, String> mp2 = subCategoryData();
-        Map<String, Map<String, String>> result = new HashMap<>();
-
-        for (ProductCategoryDocument pro : productCategoryDocumentList) {
-            String subCategoryName = mp2.get(pro.getSubCategoryId());
-            if (subCategoryName == null) {
-                continue;
-            }
-
-            result.computeIfAbsent(subCategoryName, k -> new HashMap<>())
-                    .put(pro.getName(), mp1.get(pro.getCategoryId()));
-        }
-
-        return result;
-    }
-
-    @PostConstruct
-    public void initializeCaches() {
         try {
-            logger.info("Initializing caches on startup...");
-            // Populate caches in parallel
-            CompletableFuture<Void> categoryFuture = CompletableFuture.runAsync(() -> {
-                categoryIdToNameMap = categoryData(true);
-                categoryNameToIdMap = categoryData(false);
-            });
-            
-            CompletableFuture<Void> subCategoryFuture = CompletableFuture.runAsync(() -> {
-                subCategoryIdToNameMap = subCategoryData();
-            });
-            
-            // Wait for both operations to complete
-            CompletableFuture.allOf(categoryFuture, subCategoryFuture).join();
-            logger.info("Cache initialization completed");
-        } catch (Exception e) {
-            logger.error("Error during cache initialization", e);
-        }
-    }
+            List<ProductCategoryDocument> productDocuments = productCategoryRepository.findAll();
 
-    @Cacheable(value = "categoryData", key = "#value")
-    public Map<String,String> categoryData(boolean value) {
-        try {
-            // Check if the data is already cached in Redis for better performance
-            String redisKey = "categoryData:" + value;
-            Map<String,String> mpList = null;
-            
-            try {
-                mpList = (Map<String,String>) redisTemplate.opsForValue().get(redisKey);
-            } catch (Exception e) {
-                logger.warn("Error retrieving from Redis cache: {}", e.getMessage());
-            }
-            
-            if (mpList != null) {
-                return mpList;
-            }
-            
-            List<CategoryDocument> categoryDocumentsList = categoryRepository.findAll();
-            
-            if (value) {
-                mpList = categoryDocumentsList.stream()
-                        .collect(Collectors.toMap(
-                            CategoryDocument::getId,
-                            CategoryDocument::getName,
-                            (v1, v2) -> v1, // In case of duplicate keys keep first value
-                            HashMap::new
-                        ));
-            } else {
-                mpList = categoryDocumentsList.stream()
-                        .collect(Collectors.toMap(
-                            CategoryDocument::getName,
-                            CategoryDocument::getId,
-                            (v1, v2) -> v1, // In case of duplicate keys keep first value
-                            HashMap::new
-                        ));
-            }
-            
-            // Cache the result in Redis for faster subsequent access
-            try {
-                redisTemplate.opsForValue().set(redisKey, mpList, 48, TimeUnit.HOURS);
-            } catch (Exception e) {
-                logger.warn("Error storing in Redis cache: {}", e.getMessage());
-            }
-            
-            return mpList;
-        } catch (Exception e) {
-            logger.error("Error generating category data map", e);
-            return new HashMap<>(); // Return empty map instead of null to prevent NPE
-        }
-    }
-    
-    @Cacheable(value = "subcategoryData")
-    public Map<String,String> subCategoryData() {
-        try {
-            // Check if the data is already cached in Redis for better performance
-            String redisKey = "subcategoryData";
-            Map<String,String> mpList = null;
-            
-            try {
-                mpList = (Map<String,String>) redisTemplate.opsForValue().get(redisKey);
-            } catch (Exception e) {
-                logger.warn("Error retrieving from Redis cache: {}", e.getMessage());
-            }
-            
-            if (mpList != null) {
-                return mpList;
-            }
-            
-            List<SubCategoryDocument> categoryDocumentsList = subCategoryRepository.findAll();
-            
-            // Use Java 8 streams for better performance
-            mpList = categoryDocumentsList.stream()
-                    .collect(Collectors.toMap(
-                        SubCategoryDocument::getId,
-                        SubCategoryDocument::getName,
-                        (v1, v2) -> v1, // In case of duplicate keys keep first value
-                        HashMap::new
+            return productDocuments.stream()
+                    .filter(product -> product.getSubCategoryName() != null && !product.getSubCategoryName().isEmpty())
+                    .collect(Collectors.groupingBy(
+                            ProductCategoryDocument::getSubCategoryName,
+                            Collectors.toMap(
+                                    ProductCategoryDocument::getName,
+                                    product -> product.getCategoryName() != null ? product.getCategoryName() : "Unknown",
+                                    (existing, replacement) -> existing
+                            )
                     ));
-            
-            // Cache the result in Redis for faster subsequent access
-            try {
-                redisTemplate.opsForValue().set(redisKey, mpList, 48, TimeUnit.HOURS);
-            } catch (Exception e) {
-                logger.warn("Error storing in Redis cache: {}", e.getMessage());
-            }
-            
-            return mpList;
         } catch (Exception e) {
-            logger.error("Error generating subcategory data map", e);
-            return new HashMap<>(); // Return empty map instead of null to prevent NPE
+            logger.error("Error building shop by category map", e);
+            return Collections.emptyMap();
         }
+    }
+
+    private ProductResponse mapProductToResponseDirect(ProductCategoryDocument product) {
+        ProductResponse response = new ProductResponse();
+        response.setId(product.getId());
+        response.setName(product.getName());
+        response.setDescription(product.getDescription());
+        response.setImageUrl(product.getImageUrl());
+        response.setCategoryName(product.getCategoryName());
+        response.setSubCategoryName(product.getSubCategoryName());
+        response.setTags(product.getTags());
+        response.setFeatured(product.isFeatured());
+        response.setBestSeller(product.isBestSeller());
+        return response;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, String> getCachedMap(String redisKey) {
+        try {
+            return (Map<String, String>) redisTemplate.opsForValue().get(redisKey);
+        } catch (Exception e) {
+            logger.warn("Error retrieving map from Redis cache for key: {}", redisKey, e);
+            return null;
+        }
+    }
+
+    private void cacheMap(String redisKey, Map<String, String> map) {
+        try {
+            redisTemplate.opsForValue().set(redisKey, map, CACHE_TTL_HOURS, TimeUnit.HOURS);
+        } catch (Exception e) {
+            logger.warn("Error storing map in Redis cache for key: {}", redisKey, e);
+        }
+    }
+
+    private List<String> getCategoryNamesForSearch(String categoryName) {
+        List<String> categoryNames = new ArrayList<>();
+
+        if (REPLACEMENT_PARTS.equals(categoryName)) {
+            categoryNames.add(REPLACEMENT_PARTS);
+            categoryNames.add(FLUIDS_LUBRICANTS);
+        } else {
+            categoryNames.add(TOOLS_EQUIPMENTS);
+            categoryNames.add(INDUSTRIAL_SAFETY);
+        }
+
+        return categoryNames;
+    }
+
+    private void addIfPresent(List<String> list, String value) {
+        if (value != null) {
+            list.add(value);
+        }
+    }
+
+    private List<ProductCategoryDocument> fetchProductDocuments(String categoryId, String subCategoryId) {
+        if (categoryId != null && subCategoryId == null) {
+            return productCategoryRepository.findByCategoryIds(categoryId, null);
+        } else {
+            return productCategoryRepository.findByCategoryAndSubcategory(categoryId, subCategoryId);
+        }
+    }
+
+    // Mapping methods
+    private ProductResponse mapCategoryToProductResponse(CategoryDocument category) {
+        ProductResponse response = new ProductResponse();
+        response.setId(category.getId());
+        response.setName(category.getName());
+        response.setDescription(category.getDescription());
+        response.setImageUrl(category.getImages());
+        response.setTags(category.getTags());
+        response.setFeatured(category.isFeatured());
+        response.setBestSeller(category.isBestSeller());
+        return response;
+    }
+
+    private SubCategoryResponse mapSubCategoryToResponse(SubCategoryDocument subCategory) {
+        SubCategoryResponse response = new SubCategoryResponse();
+        response.setId(subCategory.getId());
+        response.setName(subCategory.getName());
+        response.setDescription(subCategory.getDescription());
+        response.setCategoryName(subCategory.getCategoryName());
+        response.setImages(subCategory.getImages());
+        response.setTags(subCategory.getTags());
+        response.setFeatured(subCategory.isFeatured());
+        response.setBestSeller(subCategory.isBestSeller());
+        return response;
+    }
+
+    private SubCategoryDocument mapToSimpleSubCategory(SubCategoryDocument original) {
+        SubCategoryDocument simple = new SubCategoryDocument();
+        simple.setId(original.getId());
+        simple.setName(original.getName());
+        return simple;
+    }
+
+    private ProductResponse mapProductToResponse(ProductCategoryDocument product) {
+        ProductResponse response = new ProductResponse();
+        response.setId(product.getId());
+        response.setName(product.getName());
+        response.setDescription(product.getDescription());
+        response.setImageUrl(product.getImageUrl());
+        response.setCategoryName(product.getCategoryName());
+        response.setSubCategoryName(product.getSubCategoryName());
+        response.setTags(product.getTags());
+        response.setFeatured(product.isFeatured());
+        response.setBestSeller(product.isBestSeller());
+        return response;
+    }
+
+    private ProductResponse mapProductToResponseWithDirectNames(ProductCategoryDocument product) {
+        ProductResponse response = new ProductResponse();
+        response.setId(product.getId());
+        response.setName(product.getName());
+        response.setDescription(product.getDescription());
+        response.setImageUrl(product.getImageUrl());
+        response.setCategoryName(product.getCategoryName());
+        response.setSubCategoryName(product.getSubCategoryName());
+        response.setTags(product.getTags());
+        response.setFeatured(product.isFeatured());
+        response.setBestSeller(product.isBestSeller());
+        return response;
+    }
+
+    private ProductEnquiryDocument mapEnquiryRequestToDocument(ProductEnquiryRequest request) {
+        ProductEnquiryDocument enquiry = new ProductEnquiryDocument();
+        enquiry.setName(request.getName());
+        enquiry.setEmail(request.getEmail());
+        enquiry.setStore(request.getStore());
+        enquiry.setProductName(request.getProductName());
+        enquiry.setMessage(request.getMessage());
+        return enquiry;
+    }
+
+    private String buildEnquiryEmailText(ProductEnquiryRequest request) {
+        return String.format(
+                "A new contact has been saved with the following details:\n\n" +
+                        "Name: %s\n" +
+                        "Email: %s\n" +
+                        "Product Name: %s\n" +
+                        "Store: %s\n" +
+                        "Message: %s",
+                request.getName(),
+                request.getEmail(),
+                request.getProductName(),
+                request.getStore(),
+                request.getMessage()
+        );
     }
 
     private void logTimeTaken(String operation, long startTime) {
         long endTime = System.nanoTime();
-        logger.info("{} took {} ms", operation, 
-            TimeUnit.NANOSECONDS.toMillis(endTime - startTime));
+        long durationMs = TimeUnit.NANOSECONDS.toMillis(endTime - startTime);
+        logger.info("{} completed in {} ms", operation, durationMs);
     }
 }

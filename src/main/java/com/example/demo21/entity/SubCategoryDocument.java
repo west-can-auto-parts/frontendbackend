@@ -17,6 +17,7 @@ public class SubCategoryDocument {
     private List<String> images;
     private String parentId;
     private String categoryId;
+    private String categoryName;
     private List<String> tags;
     private boolean featured;
     private boolean bestSeller;

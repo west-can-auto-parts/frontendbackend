@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 
 public interface ProductService {
-
     public List<ProductResponse> getAllCategory();
     public List<SubCategoryResponse> getAllSubCategory();
     public List<SubCategoryDocument> getSubCategoryByCategoryId(String id);

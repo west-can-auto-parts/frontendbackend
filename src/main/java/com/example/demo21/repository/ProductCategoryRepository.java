@@ -14,9 +14,11 @@ public interface ProductCategoryRepository extends MongoRepository<ProductCatego
     @Query("{$and :[{'categoryId': ?0},{'subCategoryId': ?1}] }")
     List<ProductCategoryDocument> findByCategoryAndSubcategory(String categoryId, String subcategoryId);
 
-    List<ProductCategoryDocument> findBySubCategoryId(String subCategoryId);
+    List<ProductCategoryDocument> findBySubCategoryName(String subCategoryName);
     @Query("{$or: [{'categoryId': ?0}, {'categoryId': ?1}]}")
     List<ProductCategoryDocument> findByCategoryIds(String categoryId1, String categoryId2);
+    @Query("{$or: [{'categoryName': ?0}, {'categoryName': ?1}]}")
+    List<ProductCategoryDocument> findByCategoryName(String categoryName1,String categoryName2);
     @Query("{'categoryId': ?0}")
     List<ProductCategoryDocument> findByCategoryId(String id);
     @Query("{'name':?0}")

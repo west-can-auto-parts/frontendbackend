@@ -16,7 +16,9 @@ public class ProductCategoryDocument {
     private String description;
     private List<String> imageUrl;
     private String categoryId;
+    private String categoryName;
     private String subCategoryId;
+    private String subCategoryName;
     private List<String> tags;
     private boolean featured;
     private boolean bestSeller;
