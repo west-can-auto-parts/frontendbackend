@@ -17,7 +17,7 @@ public interface SubCategoryRepository extends MongoRepository<SubCategoryDocume
     List<SubCategoryDocument> findByCategoryId(String id);
     @Query("{'name':?0}")
     SubCategoryDocument findByName(String name);
-    @Query("{ 'name': { '$regex': ?0,'$options': 'i'} }")
+    @Query("{ '$text': { '$search': ?0 } }")
     List<SubCategoryDocument> searchByName(String name);
 
     @Query("{'name':{'$in':?0}}")

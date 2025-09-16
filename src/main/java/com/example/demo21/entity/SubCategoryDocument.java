@@ -11,15 +11,16 @@ import java.util.Map;
 @Document(collection = "SubCategory")
 public class SubCategoryDocument {
     private String id;
-    @Indexed(unique = true)
-    private String name;
     private String description;
     private List<String> images;
     private String parentId;
-    private String categoryId;
     private String categoryName;
     private List<String> tags;
     private boolean featured;
     private boolean bestSeller;
     private Map<String,Integer> productCategoryAndPosition;
+    @Indexed
+    private String categoryId;
+    @Indexed
+    private String name;
 }
