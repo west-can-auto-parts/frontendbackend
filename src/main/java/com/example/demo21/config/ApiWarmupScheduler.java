@@ -27,7 +27,7 @@ public class ApiWarmupScheduler {
      * This runs every 30 minutes (1800000 milliseconds)
      * It calls frequently used backend methods to keep the app "warm"
      */
-    @Scheduled(fixedRate = 1800000)
+    @Scheduled(cron = "0 */30 * * * ?")
     public void warmupApis() {
         try {
             logger.info("=== Starting scheduled API warm-up ===");
