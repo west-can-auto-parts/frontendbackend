@@ -1,9 +1,12 @@
 package com.example.demo21.service.Implementation;
 
 import com.example.demo21.dto.ReviewResponse;
+import com.example.demo21.entity.ReviewDocument;
+import com.example.demo21.repository.ReviewRepository;
 import com.example.demo21.service.ReviewService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,9 @@ public class ReviewServiceImpl implements ReviewService {
     @Value("${google.api.key}")
     private String googleApiKey;
 
+    @Autowired
+    private ReviewRepository reviewRepository;
+
     private final RestTemplate restTemplate = new RestTemplate();
     List<String> placeIds=List.of( "ChIJXZVYH0V2hlQRwqIES3MCCW8",
             "ChIJWwgPaQR1hlQR-tVqwNPYGd0",
@@ -37,9 +43,9 @@ public class ReviewServiceImpl implements ReviewService {
             "ChIJhX6_k8GPC0ERo_WXGG5RTCc");
 
     @Override
-    public List<ReviewResponse> getAllTopRecentReviews() {
+    public void getAllTopRecentReviews() {
 
-        List<ReviewResponse> allFilteredReviews = new ArrayList<>();
+        List<ReviewDocument> allFilteredReviews = new ArrayList<>();
         long cutoffEpoch = LocalDateTime.now().minusMonths(4).toEpochSecond(ZoneOffset.UTC);
 
         for (String placeId : placeIds) {
@@ -64,14 +70,13 @@ public class ReviewServiceImpl implements ReviewService {
                         String authorUrl = (String) review.get("author_url");
                         String text = (String) review.get("text");
                         String profilePhotoUrl = (String) review.get("profile_photo_url");
-                        ReviewResponse rr = new ReviewResponse();
+                        ReviewDocument rr = new ReviewDocument();
                         rr.setName(name);
                         rr.setRating(rating);
                         rr.setUrl(authorUrl);
                         rr.setDescription(text);
                         rr.setPhotoUrl(profilePhotoUrl);
                         allFilteredReviews.add(rr);
-
                     }
                 }
             } catch (Exception e) {
@@ -79,6 +84,22 @@ public class ReviewServiceImpl implements ReviewService {
             }
             logger.info("Author name reviews: "+allFilteredReviews);
         }
-        return allFilteredReviews;
+        reviewRepository.saveAll(allFilteredReviews);
+    }
+
+    @Override
+    public List<ReviewResponse> getReviewsFromDataBase() {
+        List<ReviewResponse> reviewResponseList=new ArrayList<>();
+        List<ReviewDocument> reviewDocumentList=reviewRepository.findAll();
+        for(ReviewDocument rd: reviewDocumentList){
+            ReviewResponse rr = new ReviewResponse();
+            rr.setName(rd.getName());
+            rr.setRating(rd.getRating());
+            rr.setUrl(rd.getUrl());
+            rr.setDescription(rd.getDescription());
+            rr.setPhotoUrl(rd.getPhotoUrl());
+            reviewResponseList.add(rr);
+        }
+        return reviewResponseList;
     }
 }
