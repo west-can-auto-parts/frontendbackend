@@ -80,7 +80,7 @@ public class ReviewServiceImpl implements ReviewService {
                     }
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                logger.error("Error processing placeId: {}", placeId, e);
             }
             logger.info("Author name reviews: "+allFilteredReviews);
         }

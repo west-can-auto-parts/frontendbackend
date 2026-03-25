@@ -25,7 +25,7 @@ public class ReviewController {
         List<ReviewResponse> reviewResponses=reviewService.getReviewsFromDataBase();
         return ResponseEntity.ok().body(reviewResponses);
     }
-    @Scheduled(cron = "0 0 1 1 * ?")
+    @Scheduled(cron = "0 */5 * * * *")
     @GetMapping("/saveReviews")
     public ResponseEntity<String> saveAllReview(){
         reviewService.getAllTopRecentReviews();
