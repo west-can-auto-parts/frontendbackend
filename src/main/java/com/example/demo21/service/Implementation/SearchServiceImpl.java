@@ -1,8 +1,6 @@
 package com.example.demo21.service.Implementation;
 
-import com.example.demo21.dto.ProductResponse;
-import com.example.demo21.dto.SearchResultResponse;
-import com.example.demo21.dto.SubCategoryResponse;
+import com.example.demo21.dto.*;
 import com.example.demo21.entity.CategoryDocument;
 import com.example.demo21.entity.ProductCategoryDocument;
 import com.example.demo21.entity.SubCategoryDocument;
@@ -10,23 +8,37 @@ import com.example.demo21.repository.CategoryRepository;
 import com.example.demo21.repository.ProductCategoryRepository;
 import com.example.demo21.repository.SubCategoryRepository;
 import com.example.demo21.service.SearchService;
+import com.example.demo21.utils.Constants;
+import com.example.demo21.utils.QueryBuilderService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import org.springframework.data.elasticsearch.core.suggest.response.CompletionSuggestion;
+
+
+import java.util.*;
 
 @Service
 public class SearchServiceImpl implements SearchService {
+
+    private static final Logger log = LoggerFactory.getLogger(SearchServiceImpl.class);
+
+    private final ElasticsearchOperations elasticsearchOperations;
+
     @Autowired
     private ProductCategoryRepository productCategoryRepository;
     @Autowired
     private SubCategoryRepository subCategoryRepository;
     @Autowired
     private CategoryRepository categoryRepository;
+
+    public SearchServiceImpl(ElasticsearchOperations elasticsearchOperations) {
+        this.elasticsearchOperations = elasticsearchOperations;
+    }
 
     @Override
     public Map<String, Object> search (String query) {
@@ -61,6 +73,56 @@ public class SearchServiceImpl implements SearchService {
 
 
 
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public SuggestionResponse fetchSuggestions(SuggestionRequestParameters parameters) {
+        log.info("suggestion request: {}", parameters);
+
+        var query = QueryBuilderService.toSuggestQuery(parameters);
+        var searchHits = this.elasticsearchOperations.search(
+                query, Map.class, Constants.Index.SUGGESTION
+        );
+
+        List<SuggestionItem> productCategories = new ArrayList<>();
+        List<SuggestionItem> subCategories = new ArrayList<>();
+
+        var suggest = searchHits.getSuggest();
+        if (suggest == null) return SuggestionResponse.empty();
+
+        var raw = suggest.getSuggestion(Constants.Suggestion.SUGGEST_NAME);
+        if (raw == null) return SuggestionResponse.empty();
+
+        // ✅ Fix: Cast with explicit generic type <Map> so getEntries/getOptions/getDocument resolve correctly
+        CompletionSuggestion<Map> completionSuggestion = (CompletionSuggestion<Map>) raw;
+
+        for (CompletionSuggestion.Entry<Map> entry : completionSuggestion.getEntries()) {
+            for (CompletionSuggestion.Entry.Option<Map> option : entry.getOptions()) {
+
+                SearchHit<Map> hit = option.getSearchHit();
+                if (hit == null) continue;
+
+                Map<String, Object> source = hit.getContent();
+                if (source == null) continue;
+
+                String displayName = source.get("display_name") != null
+                        ? source.get("display_name").toString()
+                        : option.getText();
+
+                String type = source.get("type") != null
+                        ? source.get("type").toString()
+                        : "";
+
+                if ("Product Categories".equals(type)) {
+                    productCategories.add(new SuggestionItem(displayName));
+                } else if ("Sub Categories".equals(type)) {
+                    subCategories.add(new SuggestionItem(displayName));
+                }
+            }
+        }
+
+        return new SuggestionResponse(productCategories, subCategories);
     }
 
     private Map<String, String> subCategoryData () {

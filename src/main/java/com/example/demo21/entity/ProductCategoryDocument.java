@@ -30,7 +30,6 @@ public class ProductCategoryDocument {
     private String categoryId;
     @Indexed
     private String subCategoryId;
-    @Indexed
     private String name;
     @Indexed
     private boolean bestSeller;

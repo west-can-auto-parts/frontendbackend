@@ -1,6 +1,8 @@
 package com.example.demo21.controller;
 
 import com.example.demo21.dto.SearchResultResponse;
+import com.example.demo21.dto.SuggestionRequestParameters;
+import com.example.demo21.dto.SuggestionResponse;
 import com.example.demo21.service.SearchService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -69,5 +71,10 @@ public class SearchController {
             }
         }
         return capitalizedStr.toString().trim();
+    }
+
+    @GetMapping("/suggestions")
+    public SuggestionResponse suggest(SuggestionRequestParameters parameters){
+        return this.searchService.fetchSuggestions(parameters);
     }
 }
